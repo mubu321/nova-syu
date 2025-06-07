@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レトロ3D育成シミュレーター</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'DotGothic16', 'PixelMplus10', monospace;
+            overflow: hidden;
+            background: radial-gradient(circle, #001122 0%, #000000 100%);
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            color: #00ff00;
+            font-size: 18px;
+            text-shadow: 0 0 10px #00ff00;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            font-weight: normal;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 5px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border: 1px solid #00ff00;
+            border-radius: 0;
+        }
+        
+        .btn {
+            background: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 12px 24px;
+            font-family: 'DotGothic16', 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: normal;
+            cursor: pointer;
+            border-radius: 0;
+            text-shadow: 0 0 5px #00ff00;
+            box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.2);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '> ';
+            color: #00ff00;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 
+                inset 0 0 10px rgba(0, 255, 0, 0.3),
+                0 0 15px rgba(0, 255, 0, 0.5);
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .btn:active {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 
+                inset 0 0 15px rgba(0, 255, 0, 0.4),
+                0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        
+        .btn:focus {
+            outline: none;
+            background: rgba(0, 255, 0, 0.05);
+        }
+        
+        #status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            color: #ffff00;
+            font-size: 16px;
+            text-shadow: 0 0 10px #ffff00;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border: 2px solid #ffff00;
+            border-radius: 5px;
+            min-width: 200px;
+            font-weight: normal;
+        }
+        
+        .retro-text {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            font-family: 'DotGothic16', 'PixelMplus10', monospace;
+        }
+        
+        .neon-pink {
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+        
+        .neon-cyan {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        
+        .action-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffff00;
+            font-size: 20px;
+            font-family: 'DotGothic16', 'PixelMplus10', monospace;
+            text-shadow: 0 0 20px #ffff00;
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px 30px;
+            border: 2px solid #ffff00;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="ui">
+            <div class="retro-text">◆ デジタルペット ◆</div>
+            <div id="petName" class="neon-cyan">ノヴァ</div>
+            <div>レベル: <span id="level">1</span></div>
+            <div>経験値: <span id="exp">0</span>/100</div>
+            <div>サイズ: <span id="size">1.0</span></div>
+        </div>
+        
+        <div id="status">
+            <div class="neon-pink">ステータス情報</div>
+            <div>体力: <span id="health">100</span>%</div>
+            <div>幸福度: <span id="happiness">80</span>%</div>
+            <div>活力: <span id="energy">90</span>%</div>
+            <div>年齢: <span id="age">0</span> 日</div>
+            <div id="mood" style="color: #00ffff; margin-top: 5px;">好奇心旺盛</div>
+        </div>
+        
+        <div id="controls">
+            <button class="btn" onclick="feedCreature()">🍎 feed_creature</button>
+            <button class="btn" onclick="playWithCreature()">⚡ play_mode</button>
+            <button class="btn" onclick="trainCreature()">💪 train_sequence</button>
+            <button class="btn" onclick="restCreature()">💤 sleep_mode</button>
+            <button class="btn" onclick="talkToCreature()">💬 communicate</button>
+        </div>
+    </div>
+
+    <script>
+        // オーディオコンテキストと効果音
+        let audioContext;
+        let soundEnabled = false;
+        
+        // 効果音を作成する関数
+        function playSound(frequency, duration, type = 'sine') {
+            if (!soundEnabled || !audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+        
+        // 複合音を作成
+        function playComplexSound(notes, duration = 0.3) {
+            notes.forEach((note, index) => {
+                setTimeout(() => playSound(note, duration), index * 100);
+            });
+        }
+        
+        // 効果音の定義
+        const sounds = {
+            feed: () => playComplexSound([440, 554, 659], 0.2),
+            play: () => playComplexSound([659, 880, 1047, 880], 0.15),
+            train: () => playComplexSound([330, 415, 523], 0.25),
+            rest: () => playComplexSound([220, 277, 330], 0.4),
+            talk: () => playComplexSound([880, 659, 440], 0.2),
+            levelUp: () => playComplexSound([523, 659, 784, 1047], 0.3),
+            happy: () => playComplexSound([784, 988, 1175], 0.2)
+        };
+        
+        // ゲーム変数
+        let scene, camera, renderer, creature, grid, particles = [];
+        let stats = {
+            level: 1,
+            exp: 0,
+            size: 1.0,
+            health: 100,
+            happiness: 80,
+            energy: 90,
+            age: 0,
+            mood: '好奇心旺盛'
+        };
+        
+        let time = 0;
+        let creatureColor = new THREE.Color(0xff00ff);
+        let petName = 'ノヴァ';
+        let storyStage = 0;
+        
+        // ストーリーメッセージ（日本語）
+        const storyMessages = [
+            "ノヴァがデジタルの虚空で目を覚まし、あなたを好奇心深く見つめています...",
+            "ノヴァがあなたの存在を認識したようです。やさしいハミング音が響きます。",
+            "ノヴァの触角があなたが近づくと興奮して震えています。",
+            "ノヴァがダンスを覚えました！小さな足が動くのを見てください！",
+            "ノヴァがより明るく光っています - あなたのお世話で強くなっています。",
+            "ノヴァが静かに鳴いています。深いつながりが生まれているのを感じます。",
+            "ノヴァの瞳が信頼に輝いています。あなたはノヴァの全世界なのです。",
+            "ノヴァが暖かい光で脈動しています。この絆は決して切れることはありません。"
+        ];
+        
+        const moods = [
+            '好奇心旺盛', '幸せ', '遊び好き', '眠たい', '興奮気味', 
+            '穏やか', '元気', '満足', '親しみやすい', '夢見がち'
+        ];
+        
+        const petResponses = [
+            "*ピープ ピープ* ♪",
+            "*嬉しい鳴き声* ✨",
+            "*やさしいハミング* ~",
+            "*興奮したうなり声* ⚡",
+            "*眠そうなうなり声* 💤",
+            "*好奇心旺盛な鳴き声* ?",
+            "*暖かいブーン* 💝",
+            "*遊び心のあるブープ* 🎵"
+        ];
+        
+        // オーディオコンテキストを初期化
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                soundEnabled = true;
+            }
+        }
+        
+        // ゲームの初期化
+        function init() {
+            // 最初のクリックで音声を有効化
+            document.addEventListener('click', initAudio, { once: true });
+            
+            // シーンを作成
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 10, 50);
+            
+            // カメラを作成
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 0, 0);
+            
+            // レンダラーを作成
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000011);
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // レトログリッドフロアを作成
+            createGrid();
+            
+            // クリーチャーを作成
+            createCreature();
+            
+            // パーティクルシステムを作成
+            createParticles();
+            
+            // ライティングを作成
+            createLighting();
+            
+            // ゲームループを開始
+            animate();
+            
+            // 年齢システムを開始
+            setInterval(ageCreature, 8000); // 8秒ごとに年を取る
+            
+            // ストーリー進行を開始
+            setTimeout(() => showStoryMessage(), 3000);
+            setInterval(updateMood, 15000); // 15秒ごとに気分を変更
+        }
+        
+        function createGrid() {
+            const gridSize = 20;
+            const divisions = 20;
+            
+            // ワイヤーフレームグリッドを作成
+            const gridHelper = new THREE.GridHelper(gridSize, divisions, 0x00ff00, 0x004400);
+            gridHelper.position.y = -2;
+            scene.add(gridHelper);
+            
+            // 光る線を作成
+            const geometry = new THREE.BufferGeometry();
+            const material = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 });
+            
+            const points = [];
+            for (let i = -10; i <= 10; i++) {
+                points.push(new THREE.Vector3(i, -2, -10));
+                points.push(new THREE.Vector3(i, -2, 10));
+            }
+            for (let i = -10; i <= 10; i++) {
+                points.push(new THREE.Vector3(-10, -2, i));
+                points.push(new THREE.Vector3(10, -2, i));
+            }
+            
+            geometry.setFromPoints(points);
+            const lines = new THREE.LineSegments(geometry, material);
+            scene.add(lines);
+        }
+        
+        function createCreature() {
+            // 基本的な幾何学図形を使用してレトロスタイルのクリーチャーを作成
+            const group = new THREE.Group();
+            
+            // 本体（メインスフィア）
+            const bodyGeometry = new THREE.SphereGeometry(1, 8, 6); // ローポリスフィア
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: creatureColor,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.9
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            group.add(body);
+            
+            // 目
+            const eyeGeometry = new THREE.SphereGeometry(0.2, 6, 4);
+            const eyeMaterial = new THREE.MeshPhongMaterial({ color: 0x00ffff, emissive: 0x004444 });
+            
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.3, 0.3, 0.8);
+            group.add(leftEye);
+            
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.3, 0.3, 0.8);
+            group.add(rightEye);
+            
+            // 触角
+            const antennaGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 4);
+            const antennaMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+            
+            const leftAntenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+            leftAntenna.position.set(-0.4, 1.2, 0);
+            leftAntenna.rotation.z = Math.PI / 6;
+            group.add(leftAntenna);
+            
+            const rightAntenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+            rightAntenna.position.set(0.4, 1.2, 0);
+            rightAntenna.rotation.z = -Math.PI / 6;
+            group.add(rightAntenna);
+            
+            // 脚
+            const legGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 4);
+            const legMaterial = new THREE.MeshPhongMaterial({ color: 0xff00ff });
+            
+            for (let i = 0; i < 4; i++) {
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                const angle = (i / 4) * Math.PI * 2;
+                leg.position.set(Math.cos(angle) * 0.7, -1.2, Math.sin(angle) * 0.7);
+                group.add(leg);
+            }
+            
+            creature = group;
+            scene.add(creature);
+        }
+        
+        function createParticles() {
+            // 雰囲気のための浮遊パーティクルを作成
+            const particleGeometry = new THREE.BufferGeometry();
+            const particleCount = 50;
+            
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 30;
+                positions[i * 3 + 1] = Math.random() * 10;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+                
+                colors[i * 3] = Math.random();
+                colors[i * 3 + 1] = Math.random();
+                colors[i * 3 + 2] = Math.random();
+            }
+            
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particleSystem);
+            particles.push(particleSystem);
+        }
+        
+        function createLighting() {
+            // 環境光
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambientLight);
+            
+            // 方向光
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+            
+            // レトロ効果のためのカラーライト
+            const pinkLight = new THREE.PointLight(0xff00ff, 1, 10);
+            pinkLight.position.set(-5, 3, 0);
+            scene.add(pinkLight);
+            
+            const cyanLight = new THREE.PointLight(0x00ffff, 1, 10);
+            cyanLight.position.set(5, 3, 0);
+            scene.add(cyanLight);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            time += 0.01;
+            
+            // クリーチャーをアニメーション
+            if (creature) {
+                creature.rotation.y += 0.01;
+                creature.position.y = Math.sin(time * 2) * 0.2;
+                creature.scale.setScalar(stats.size);
+                
+                // 体力に基づいてクリーチャーの色を更新
+                const healthRatio = stats.health / 100;
+                creatureColor.setHSL(healthRatio * 0.3, 1, 0.5);
+                creature.children[0].material.color = creatureColor;
+            }
+            
+            // パーティクルをアニメーション
+            particles.forEach(system => {
+                system.rotation.y += 0.005;
+                const positions = system.geometry.attributes.position.array;
+                for (let i = 1; i < positions.length; i += 3) {
+                    positions[i] += Math.sin(time + i) * 0.01;
+                }
+                system.geometry.attributes.position.needsUpdate = true;
+            });
+            
+            // カメラ移動
+            camera.position.x = Math.sin(time * 0.5) * 2;
+            camera.position.z = Math.cos(time * 0.5) * 2 + 10;
+            camera.lookAt(0, 0, 0);
+            
+            renderer.render(scene, camera);
+        }
+        
+        // ゲームメカニクス
+        function feedCreature() {
+            if (stats.energy >= 10) {
+                stats.health = Math.min(100, stats.health + 15);
+                stats.happiness = Math.min(100, stats.happiness + 10);
+                stats.energy -= 10;
+                stats.exp += 5;
+                checkLevelUp();
+                updateUI();
+                showAction(`${petName}が食事を楽しんでいます！ *嬉しそうにもぐもぐ*`);
+                sounds.feed();
+                
+                // 給餌アニメーション
+                if (creature) {
+                    creature.children[0].scale.x = 1.2;
+                    creature.children[0].scale.z = 1.2;
+                    setTimeout(() => {
+                        creature.children[0].scale.x = 1;
+                        creature.children[0].scale.z = 1;
+                    }, 500);
+                }
+            } else {
+                showAction(`${petName}は眠すぎて今は食べられません...`);
+            }
+        }
+        
+        function playWithCreature() {
+            if (stats.energy >= 15) {
+                stats.happiness = Math.min(100, stats.happiness + 20);
+                stats.energy -= 15;
+                stats.exp += 8;
+                checkLevelUp();
+                updateUI();
+                showAction(`${petName}が喜んで跳ね回っています！ *嬉しいピープ音*`);
+                sounds.play();
+                
+                // 遊びアニメーション - 回転とジャンプ
+                if (creature) {
+                    const originalY = creature.position.y;
+                    let jumpTime = 0;
+                    const jumpInterval = setInterval(() => {
+                        jumpTime += 0.1;
+                        creature.position.y = originalY + Math.sin(jumpTime * 3) * 0.5;
+                        creature.rotation.y += 0.2;
+                        if (jumpTime > 3) {
+                            clearInterval(jumpInterval);
+                            creature.position.y = originalY;
+                        }
+                    }, 50);
+                }
+            } else {
+                showAction(`${petName}があくびをしています。遊ぶには眠すぎます...`);
+            }
+        }
+        
+        function trainCreature() {
+            if (stats.energy >= 20) {
+                stats.exp += 15;
+                stats.energy -= 20;
+                stats.health -= 5;
+                checkLevelUp();
+                updateUI();
+                showAction(`${petName}が集中しています！ *決意に満ちたうなり声*`);
+                sounds.train();
+                
+                // 訓練発光効果
+                if (creature) {
+                    const originalEmissive = creature.children[0].material.emissive.getHex();
+                    creature.children[0].material.emissive.setHex(0x004400);
+                    setTimeout(() => {
+                        creature.children[0].material.emissive.setHex(originalEmissive);
+                    }, 1000);
+                }
+            } else {
+                showAction(`${petName}は訓練前に休息が必要です...`);
+            }
+        }
+        
+        function restCreature() {
+            stats.energy = Math.min(100, stats.energy + 25);
+            stats.health = Math.min(100, stats.health + 5);
+            updateUI();
+            showAction(`${petName}が平和に丸くなっています... *やさしいうなり声*`);
+            sounds.rest();
+            
+            // 休息アニメーション - ゆっくりした呼吸
+            if (creature) {
+                let breatheTime = 0;
+                const breatheInterval = setInterval(() => {
+                    breatheTime += 0.05;
+                    const scale = 1 + Math.sin(breatheTime) * 0.05;
+                    creature.scale.set(scale * stats.size, scale * stats.size, scale * stats.size);
+                    if (breatheTime > 6) {
+                        clearInterval(breatheInterval);
+                        creature.scale.setScalar(stats.size);
+                    }
+                }, 100);
+            }
+        }
+        
+        function talkToCreature() {
+            const response = petResponses[Math.floor(Math.random() * petResponses.length)];
+            stats.happiness = Math.min(100, stats.happiness + 5);
+            updateUI();
+            showAction(`${petName}: ${response}`);
+            sounds.talk();
+            
+            // 話しかけアニメーション - 目の光
+            if (creature) {
+                const leftEye = creature.children[1];
+                const rightEye = creature.children[2];
+                const originalEmissive = leftEye.material.emissive.getHex();
+                
+                leftEye.material.emissive.setHex(0x00ffff);
+                rightEye.material.emissive.setHex(0x00ffff);
+                
+                setTimeout(() => {
+                    leftEye.material.emissive.setHex(originalEmissive);
+                    rightEye.material.emissive.setHex(originalEmissive);
+                }, 800);
+            }
+        }
+        
+        function ageCreature() {
+            stats.age++;
+            stats.health = Math.max(0, stats.health - 1);
+            stats.happiness = Math.max(0, stats.happiness - 2);
+            stats.energy = Math.max(0, stats.energy - 3);
+            updateUI();
+            
+            if (stats.health <= 0) {
+                showAction(`${petName}があなたのお世話を必要としています！助けてください！`);
+            }
+            
+            // 時々ストーリーを進行
+            if (stats.age % 3 === 0 && storyStage < storyMessages.length - 1) {
+                storyStage++;
+                setTimeout(() => showStoryMessage(), 2000);
+            }
+        }
+        
+        function checkLevelUp() {
+            const expNeeded = stats.level * 100;
+            if (stats.exp >= expNeeded) {
+                stats.level++;
+                stats.exp -= expNeeded;
+                stats.size += 0.2;
+                showAction(`${petName}が成長しています！レベル ${stats.level}！ ✨`);
+                sounds.levelUp();
+                
+                // レベルアップ祝賀
+                if (creature) {
+                    let celebrationTime = 0;
+                    const celebrationInterval = setInterval(() => {
+                        celebrationTime += 0.1;
+                        creature.position.y = Math.sin(celebrationTime * 5) * 0.3;
+                        creature.rotation.y += 0.3;
+                        
+                        if (celebrationTime > 2) {
+                            clearInterval(celebrationInterval);
+                        }
+                    }, 50);
+                }
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('level').textContent = stats.level;
+            document.getElementById('exp').textContent = stats.exp;
+            document.getElementById('size').textContent = stats.size.toFixed(1);
+            document.getElementById('health').textContent = stats.health;
+            document.getElementById('happiness').textContent = stats.happiness;
+            document.getElementById('energy').textContent = stats.energy;
+            document.getElementById('age').textContent = stats.age;
+            document.getElementById('mood').textContent = stats.mood;
+        }
+        
+        function showStoryMessage() {
+            if (storyStage < storyMessages.length) {
+                const message = storyMessages[storyStage];
+                showAction(message, 3600000); // 1時間（3600000ミリ秒）持続
+            }
+        }
+        
+        function updateMood() {
+            const newMood = moods[Math.floor(Math.random() * moods.length)];
+            if (newMood !== stats.mood) {
+                stats.mood = newMood;
+                updateUI();
+                showAction(`${petName}は${newMood}な気分です...`);
+                sounds.happy();
+            }
+        }
+        
+        function showAction(message, duration = 2000) {
+            const actionDiv = document.createElement('div');
+            actionDiv.className = 'action-message';
+            actionDiv.textContent = message;
+            
+            document.body.appendChild(actionDiv);
+            
+            setTimeout(() => {
+                if (document.body.contains(actionDiv)) {
+                    document.body.removeChild(actionDiv);
+                }
+            }, duration);
+        }
+        
+        // ウィンドウサイズ変更処理
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // ゲームを初期化
+        init();
+    </script>
+</body>
+</html>
